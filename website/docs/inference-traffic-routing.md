@@ -6,29 +6,27 @@ In this conceptual guide, you'll learn how KAITO integrates with the Gateway API
 
 ## Motivation
 
-In KAITO, inference traffic is typically routed directly to model-serving pods deployed through workspaces, instead of LLM-aware routing based on server load or priority, which may lead to performance bottlenecks as usage scales. The [Gateway API Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/) (GAIE) enhances this experience by adding intelligent traffic routing, scheduling, and load balancing, all based on model metadata, system load, and request priority.
+In KAITO, inference traffic is typically routed directly to model-serving pods deployed through workspaces, instead of LLM-aware routing based on server load or priority, which may lead to performance bottlenecks as usage scales up. The [Gateway API Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/) (GAIE) enhances this experience by adding intelligent traffic routing, scheduling, and load balancing, all based on model metadata, system load, and request priority.
 
 ### Core concepts
 
 | Concept | Purpose |
 |--|--|
 | `InferencePool` | A logical backend abstraction representing a group of model-serving pods. Functions similarly to a Kubernetes service, but with inference-specific semantics such as model identity, queuing, and performance metrics. |
-| `InferenceModel` | Maps public-facing model identifiers to one or more `InferencePools`. Carries metadata such as version, adapter name, and criticality for prioritization and routing. |
+| `InferenceModel` | Maps public-facing model identifiers to one or more `InferencePools`. Carries metadata such as version, fine-tuned adapter name, and criticality for prioritization and routing. |
 | Gateway / `HTTPRoute` |	Kubernetes-native Gateway API resources. When GAIE is enabled, `HTTPRoute` can reference an `InferencePool` directly. Requests are routed via GAIE’s intelligent endpoint selection mechanism. |
-| Endpoint Picker | Selects the optimal backend pod within an InferencePool to handle an inference request. May consider system metrics (e.g., GPU utilization, memory), model metadata, fine-tuned adapters, and criticality for efficient routing. |
+| Endpoint Picker | Selects the optimal backend pod within an `InferencePool` to handle an inference request. May consider system metrics (e.g. GPU utilization, memory), model metadata, fine-tuned adapters, and criticality for efficient routing. |
 
 ### GAIE Integration with KAITO
 
-KAITO orchestrates and manages model-serving workloads using its Workspace CRD, which defines model runtimes (e.g., vLLM, HuggingFace Transformers), fine-tuned adapters, and inference presets. GAIE extends KAITO by enabling inference-aware traffic routing to these workloads through Kubernetes Gateway APIs, namely:
-
-When GAIE is enabled, KAITO:
+KAITO orchestrates and manages model-serving workloads using its Workspace CRD, which defines model runtimes (e.g., vLLM, HuggingFace Transformers), fine-tuned adapters, and inference defaults. GAIE extends KAITO by enabling inference-aware traffic routing to these workloads through Kubernetes Gateway APIs, and when enabled, KAITO:
 
 * Dynamically provisions InferencePool and Endpoint Picker resources per Workspace
-* Integrates with **any** Gateway controller that supports GAIE (e.g., Istio, Envoy)
-* Enables inference-aware traffic routing using model metadata and runtime pod metrics
+* Integrates with **any** Gateway controller that supports GAIE (e.g. [Istio](https://istio.io/latest/docs/reference/config/networking/gateway/), [Envoy](https://gateway.envoyproxy.io/docs/tasks/quickstart/))
+* Enables inference-aware traffic routing using model metadata and runtime metrics
 * Delivers improved latency, rollout flexibility, and multi-model serving at scale
 
-This integration allows KAITO to function as a first-class model backend in modern, Gateway-driven machine learning platforms.
+The following diagram illustrates how KAITO functions as a first-class model backend in modern, Gateway-driven AI/ML platforms:
 
 ```bash
 +-------------------+
@@ -38,9 +36,9 @@ This integration allows KAITO to function as a first-class model backend in mode
           v
 +------------------------+            +-----------------------------+
 |   Workspace CRDs       |            |  FluxCD (per workspace)     |
-|   - Presets            |            |                             |
-|   - Adapters           |            |  +----------------------+   |
-+------------------------+            |  |     OCIRepository    |   |
+|   Presets, resources   |            |                             |
++------------------------+            |  +----------------------+   |
+          |                           |  |     OCIRepository    |   |
           |                           |  +----------------------+   |
           |                           |  +----------------------+   |
           v                           |  |     HelmRelease      |   |
@@ -149,13 +147,13 @@ Learn how to enable GAIE and get started with sample deployments on your Kuberne
 ### Advanced Use Cases
 
 1. Versioned Rollouts
-    * Deploy new versions as separate InferenceModels with traffic splitting.
+    * Deploy new versions as separate `InferenceModels` with traffic splitting.
     * Update routing logic to gradually shift traffic or support A/B testing.
 
 2. Criticality-Based Scheduling
-    * Assign higher criticality to latency-sensitive models (e.g., chat).
+    * Assign higher criticality to latency-sensitive models (like `chat`).
     * GAIE endpoint picker prioritizes requests accordingly.
 
 3. Multi-Tenant Model Serving
-    * Use label-based separation in InferencePools.
-    * Tenants define their own InferenceModels while platform operators manage pool capacity.
+    * Use label-based separation in `InferencePools`.
+    * Tenants define their own `InferenceModels` while platform operators manage pool capacity.
